@@ -67,6 +67,28 @@ jobs:
               fh.write(f"version={major}.{minor}.{patch}\n")
           PY
 
+      - name: Verify token access
+        env:
+          TOKEN: ${{ secrets.APP_CLIENT_REPO_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "ERROR: APP_CLIENT_REPO_TOKEN secret is not set"
+            exit 1
+          fi
+          echo "Token is set"
+          # Test API access
+          RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: token $TOKEN" \
+            "https://api.github.com/repos/${{ env.APP_CLIENT_REPO }}")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "HTTP Status: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "ERROR: Cannot access repository. Response:"
+            echo "$BODY"
+            exit 1
+          fi
+          echo "✓ Repository access verified"
+
       - name: Checkout app-client source
         uses: actions/checkout@v4
         with:
