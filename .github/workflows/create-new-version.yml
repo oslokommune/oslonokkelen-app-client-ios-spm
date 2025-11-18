@@ -1,0 +1,151 @@
+name: Create New Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump type (major|minor|patch)'
+        required: false
+        default: patch
+
+env:
+  RELEASE_PREFIX: spm-v
+  INITIAL_VERSION: 1.0.0
+  ARTIFACT_NAME: OslonokkelenAppClient.xcframework.zip
+  APP_CLIENT_REPO: oslokommune/oslonokkelen-app-client
+
+jobs:
+  release:
+    runs-on: macos-14
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout hosting repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine next version
+        id: version
+        env:
+          BUMP_TYPE: ${{ github.event.inputs.bump }}
+        run: |
+          set -eo pipefail
+          BUMP_TYPE=${BUMP_TYPE:-patch}
+          python3 <<'PY'
+import os, re, subprocess, sys
+prefix = os.environ['RELEASE_PREFIX']
+bump = os.environ.get('BUMP_TYPE', 'patch').strip().lower()
+initial = os.environ.get('INITIAL_VERSION', '1.0.0')
+if bump not in {'major','minor','patch'}:
+    raise SystemExit(f"Unsupported bump type: {bump}")
+pattern = re.compile(rf"^{re.escape(prefix)}(\d+)\.(\d+)\.(\d+)$")
+tags = subprocess.check_output(['git','tag','-l']).decode().splitlines()
+versions = []
+for tag in tags:
+    m = pattern.match(tag.strip())
+    if m:
+        versions.append((tag.strip(), tuple(map(int, m.groups()))))
+if versions:
+    _, (major, minor, patch) = max(versions, key=lambda item: item[1])
+    if bump == 'major':
+        major += 1
+        minor = 0
+        patch = 0
+    elif bump == 'minor':
+        minor += 1
+        patch = 0
+    else:
+        patch += 1
+else:
+    major, minor, patch = map(int, initial.split('.'))
+tag = f"{prefix}{major}.{minor}.{patch}"
+output_path = os.environ['GITHUB_OUTPUT']
+with open(output_path, 'a', encoding='utf-8') as fh:
+    fh.write(f"tag={tag}\n")
+    fh.write(f"version={major}.{minor}.{patch}\n")
+PY
+
+      - name: Checkout app-client source
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.APP_CLIENT_REPO }}
+          path: app-client
+          token: ${{ secrets.APP_CLIENT_REPO_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build XCFramework
+        working-directory: app-client
+        run: ./gradlew :app-client-multi-platform:assembleOslonokkelenAppClientReleaseXCFramework --build-cache
+
+      - name: Package XCFramework & compute checksum
+        working-directory: app-client/app-client-multi-platform/build/XCFrameworks/release
+        run: |
+          set -eo pipefail
+          rm -f "${{ env.ARTIFACT_NAME }}"
+          zip -r "${{ env.ARTIFACT_NAME }}" OslonokkelenAppClient.xcframework
+          swift package compute-checksum "${{ env.ARTIFACT_NAME }}" > checksum.txt
+
+      - name: Collect artifacts
+        run: |
+          set -eo pipefail
+          mkdir -p dist
+          cp app-client/app-client-multi-platform/build/XCFrameworks/release/${{ env.ARTIFACT_NAME }} dist/
+          cp app-client/app-client-multi-platform/build/XCFrameworks/release/checksum.txt dist/
+
+      - name: Update Package.swift
+        id: package
+        run: |
+          set -eo pipefail
+          ARTIFACT_URL="https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/${{ env.ARTIFACT_NAME }}"
+          CHECKSUM=$(cat dist/checksum.txt)
+          export ARTIFACT_URL CHECKSUM
+          python3 <<'PY'
+import os, pathlib, re
+path = pathlib.Path('Package.swift')
+if not path.exists():
+    raise SystemExit('Package.swift is missing')
+data = path.read_text()
+data = re.sub(r'url: "[^"]+"', f'url: "{os.environ["ARTIFACT_URL"]}"', data)
+data = re.sub(r'checksum: "[^"]+"', f'checksum: "{os.environ["CHECKSUM"].strip()}"', data)
+path.write_text(data)
+PY
+          echo "url=$ARTIFACT_URL" >> "$GITHUB_OUTPUT"
+          echo "checksum=$CHECKSUM" >> "$GITHUB_OUTPUT"
+
+      - name: Commit manifest update
+        run: |
+          set -eo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Package.swift
+          if git diff --cached --quiet; then
+            echo "No changes detected in Package.swift"
+          else
+            git commit -m "chore: release ${{ steps.version.outputs.tag }}"
+            git push origin HEAD
+          fi
+
+      - name: Create tag
+        run: |
+          set -eo pipefail
+          git tag ${{ steps.version.outputs.tag }}
+          git push origin ${{ steps.version.outputs.tag }}
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          files: dist/${{ env.ARTIFACT_NAME }}
+          generate_release_notes: true
