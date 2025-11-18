@@ -34,38 +34,38 @@ jobs:
           set -eo pipefail
           BUMP_TYPE=${BUMP_TYPE:-patch}
           python3 <<'PY'
-import os, re, subprocess, sys
-prefix = os.environ['RELEASE_PREFIX']
-bump = os.environ.get('BUMP_TYPE', 'patch').strip().lower()
-initial = os.environ.get('INITIAL_VERSION', '1.0.0')
-if bump not in {'major','minor','patch'}:
-    raise SystemExit(f"Unsupported bump type: {bump}")
-pattern = re.compile(rf"^{re.escape(prefix)}(\d+)\.(\d+)\.(\d+)$")
-tags = subprocess.check_output(['git','tag','-l']).decode().splitlines()
-versions = []
-for tag in tags:
-    m = pattern.match(tag.strip())
-    if m:
-        versions.append((tag.strip(), tuple(map(int, m.groups()))))
-if versions:
-    _, (major, minor, patch) = max(versions, key=lambda item: item[1])
-    if bump == 'major':
-        major += 1
-        minor = 0
-        patch = 0
-    elif bump == 'minor':
-        minor += 1
-        patch = 0
-    else:
-        patch += 1
-else:
-    major, minor, patch = map(int, initial.split('.'))
-tag = f"{prefix}{major}.{minor}.{patch}"
-output_path = os.environ['GITHUB_OUTPUT']
-with open(output_path, 'a', encoding='utf-8') as fh:
-    fh.write(f"tag={tag}\n")
-    fh.write(f"version={major}.{minor}.{patch}\n")
-PY
+          import os, re, subprocess, sys
+          prefix = os.environ['RELEASE_PREFIX']
+          bump = os.environ.get('BUMP_TYPE', 'patch').strip().lower()
+          initial = os.environ.get('INITIAL_VERSION', '1.0.0')
+          if bump not in {'major','minor','patch'}:
+              raise SystemExit(f"Unsupported bump type: {bump}")
+          pattern = re.compile(rf"^{re.escape(prefix)}(\d+)\.(\d+)\.(\d+)$")
+          tags = subprocess.check_output(['git','tag','-l']).decode().splitlines()
+          versions = []
+          for tag in tags:
+              m = pattern.match(tag.strip())
+              if m:
+                  versions.append((tag.strip(), tuple(map(int, m.groups()))))
+          if versions:
+              _, (major, minor, patch) = max(versions, key=lambda item: item[1])
+              if bump == 'major':
+                  major += 1
+                  minor = 0
+                  patch = 0
+              elif bump == 'minor':
+                  minor += 1
+                  patch = 0
+              else:
+                  patch += 1
+          else:
+              major, minor, patch = map(int, initial.split('.'))
+          tag = f"{prefix}{major}.{minor}.{patch}"
+          output_path = os.environ['GITHUB_OUTPUT']
+          with open(output_path, 'a', encoding='utf-8') as fh:
+              fh.write(f"tag={tag}\n")
+              fh.write(f"version={major}.{minor}.{patch}\n")
+          PY
 
       - name: Checkout app-client source
         uses: actions/checkout@v4
@@ -111,15 +111,15 @@ PY
           CHECKSUM=$(cat dist/checksum.txt)
           export ARTIFACT_URL CHECKSUM
           python3 <<'PY'
-import os, pathlib, re
-path = pathlib.Path('Package.swift')
-if not path.exists():
-    raise SystemExit('Package.swift is missing')
-data = path.read_text()
-data = re.sub(r'url: "[^"]+"', f'url: "{os.environ["ARTIFACT_URL"]}"', data)
-data = re.sub(r'checksum: "[^"]+"', f'checksum: "{os.environ["CHECKSUM"].strip()}"', data)
-path.write_text(data)
-PY
+          import os, pathlib, re
+          path = pathlib.Path('Package.swift')
+          if not path.exists():
+              raise SystemExit('Package.swift is missing')
+          data = path.read_text()
+          data = re.sub(r'url: "[^"]+"', f'url: "{os.environ["ARTIFACT_URL"]}"', data)
+          data = re.sub(r'checksum: "[^"]+"', f'checksum: "{os.environ["CHECKSUM"].strip()}"', data)
+          path.write_text(data)
+          PY
           echo "url=$ARTIFACT_URL" >> "$GITHUB_OUTPUT"
           echo "checksum=$CHECKSUM" >> "$GITHUB_OUTPUT"
 
