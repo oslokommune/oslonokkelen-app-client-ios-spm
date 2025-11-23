@@ -15,8 +15,8 @@ let package = Package(
     targets: [
         .binaryTarget(
             name: "OslonokkelenAppClient",
-            url: "https://github.com/oslokommune/oslonokkelen-app-client-ios-spm/releases/download/spm-v1.0.2/OslonokkelenAppClient.xcframework.zip",
-            checksum: "4c0e50811987618f94b2569985362c3ee28557d12d3dfa38cd9451f9fe084bb7"
+            url: "https://github.com/oslokommune/oslonokkelen-app-client-ios-spm/releases/download/spm-v1.0.4/OslonokkelenAppClient.xcframework.zip",
+            checksum: "515738b286629ed12b6654c25a5dfb9b7d459e2383d59870b696c4543218bdfa"
         )
     ]
 )
