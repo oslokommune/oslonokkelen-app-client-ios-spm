@@ -7,8 +7,16 @@ Public Swift Package Manager façade for the private `oslonokkelen-app-client` K
 1. The `Create New Version` workflow (in `.github/workflows/create-new-version.yml`) is triggered manually from GitHub → **Actions** → **Create New Version** → **Run workflow**.
 2. The workflow checks out this repo and the private `oslonokkelen-app-client` repo (using the `APP_CLIENT_REPO_TOKEN` secret).
 3. Gradle builds `OslonokkelenAppClientReleaseXCFramework`, zips the XCFramework and computes the SwiftPM checksum.
-4. The script bumps the semantic version (defaults to patch) using the `spm-vX.Y.Z` tag scheme, updates `Package.swift` with the new download URL + checksum, commits the change, pushes the tag, and publishes a GitHub Release that hosts the zip asset.
+4. The script bumps the semantic version (defaults to patch) using the `vX.Y.Z` tag scheme, updates `Package.swift` with the new download URL + checksum, commits the change, pushes the tag, and publishes a GitHub Release that hosts the zip asset.
 5. Consumers only need the latest `Package.swift` on the default branch; no manual edits are required.
+
+## Tag naming
+
+Releases are tagged `vX.Y.Z`. Tags up to and including `spm-v1.0.9` used a `spm-v` prefix, which
+Swift Package Manager does not recognise as a semantic version — consumers of those releases could
+only depend on this package by branch or revision, never by version. The version scan still reads
+the old `spm-v*` tags (via `LEGACY_RELEASE_PREFIXES`) so numbering continues uninterrupted, but new
+tags use the plain `v` prefix so consumers can pin with `exactVersion`.
 
 ## Required repository secrets
 
@@ -18,7 +26,8 @@ Public Swift Package Manager façade for the private `oslonokkelen-app-client` K
 
 ## Workflow inputs
 
-- `bump` (optional): `major`, `minor`, or `patch` (default). Determines how the next semantic version (`spm-v*.*.*`) is calculated.
+- `bump` (optional): `major`, `minor`, or `patch` (default). Determines how the next semantic version (`v*.*.*`) is calculated.
+- `app_client_ref` (optional): branch, tag or SHA of `oslonokkelen-app-client` to build. Defaults to `main`. The commit that was built is recorded in the release notes.
 
 ## First-time setup
 
