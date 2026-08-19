@@ -13,7 +13,8 @@ on:
         default: main
 
 env:
-  RELEASE_PREFIX: spm-v
+  RELEASE_PREFIX: v
+  LEGACY_RELEASE_PREFIXES: spm-v
   INITIAL_VERSION: 1.0.0
   ARTIFACT_NAME: OslonokkelenAppClient.xcframework.zip
   APP_CLIENT_REPO: oslokommune/oslonokkelen-app-client
@@ -49,11 +50,15 @@ jobs:
           python3 <<'PY'
           import os, re, subprocess, sys
           prefix = os.environ['RELEASE_PREFIX']
+          legacy = [p for p in os.environ.get('LEGACY_RELEASE_PREFIXES', '').split(',') if p]
           bump = os.environ.get('BUMP_TYPE', 'patch').strip().lower()
           initial = os.environ.get('INITIAL_VERSION', '1.0.0')
           if bump not in {'major','minor','patch'}:
               raise SystemExit(f"Unsupported bump type: {bump}")
-          pattern = re.compile(rf"^{re.escape(prefix)}(\d+)\.(\d+)\.(\d+)$")
+          # Longest prefix first so 'spm-v1.0.9' isn't matched by the bare 'v'.
+          prefixes = sorted([prefix] + legacy, key=len, reverse=True)
+          alternation = "|".join(re.escape(p) for p in prefixes)
+          pattern = re.compile(rf"^(?:{alternation})(\d+)\.(\d+)\.(\d+)$")
           tags = subprocess.check_output(['git','tag','-l']).decode().splitlines()
           versions = []
           for tag in tags:
