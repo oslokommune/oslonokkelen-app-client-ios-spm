@@ -150,10 +150,10 @@ jobs:
 
       - name: Build XCFramework
         working-directory: app-client
-        run: ./gradlew :app-client-multi-platform:assembleOslonokkelenAppClientReleaseXCFramework --build-cache
+        run: ./gradlew :app-client-app:assembleOslonokkelenAppClientReleaseXCFramework --build-cache
 
       - name: Verify XCFramework slices
-        working-directory: app-client/app-client-multi-platform/build/XCFrameworks/release
+        working-directory: app-client/app-client-app/build/XCFrameworks/release
         run: |
           set -eo pipefail
           SLICES=$(plutil -p OslonokkelenAppClient.xcframework/Info.plist \
@@ -174,7 +174,7 @@ jobs:
           fi
 
       - name: Package XCFramework & compute checksum
-        working-directory: app-client/app-client-multi-platform/build/XCFrameworks/release
+        working-directory: app-client/app-client-app/build/XCFrameworks/release
         run: |
           set -eo pipefail
           rm -f "${{ env.ARTIFACT_NAME }}"
@@ -185,8 +185,8 @@ jobs:
         run: |
           set -eo pipefail
           mkdir -p dist
-          cp app-client/app-client-multi-platform/build/XCFrameworks/release/${{ env.ARTIFACT_NAME }} dist/
-          cp app-client/app-client-multi-platform/build/XCFrameworks/release/checksum.txt dist/
+          cp app-client/app-client-app/build/XCFrameworks/release/${{ env.ARTIFACT_NAME }} dist/
+          cp app-client/app-client-app/build/XCFrameworks/release/checksum.txt dist/
 
       - name: Update Package.swift
         id: package
